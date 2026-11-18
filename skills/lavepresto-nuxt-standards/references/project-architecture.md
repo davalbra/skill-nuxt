@@ -13,6 +13,8 @@
 - Follow SOLID: separate types, constants, functions, stores, composables, and UI. Do not add all logic in a single file.
 - Type everything. Do **not** use `any`.
 - Do **not** use `unknown` or `undefined`; prefer concrete types and `null`.
+- Do **not** use `as` or `satisfies` anywhere. This includes `(await response.json()) as Tipo`, event casts, test shortcuts, Prisma payload shortcuts, and Vue template helper casts.
+- Do **not** use raw `response.json()` plus casts for client flows. Prefer typed `axios` calls in `store/`. If a server-side raw `Response` is unavoidable, parse through a helper with a declared DTO and a type guard instead of a cast.
 - Create `utils/` for shared reusable code between more than one file. Separate functions, constants, and enums into different files.
 - Keep only actual route files in `pages/`.
 - Do **not** store `*.types.ts`, `*.constants.ts`, `*.utils.ts`, or `use*.ts` inside `pages/`; move them to `lib/`, `utils/`, `types/`, or `composables/` depending on scope.
@@ -148,6 +150,8 @@ Avoid these patterns outside `store/`:
 - `import type { Ref } from 'vue'` inside the store
 - `loading`, lists, or totals inside the HTTP store
 - `console.error(...)` in the store before rethrowing the error
+- `(await response.json()) as Tipo`
+- `(await response.json().catch(() => ({}))) as Tipo`
 
 ## 4. Typing with Prisma
 
@@ -185,6 +189,7 @@ export type ClienteBase = Cliente
 Rules:
 
 - Do not use `any[]`, `any`, or responses without generics.
+- Do not use `as` or `satisfies` to force Prisma payloads, DTOs, or JSON results.
 - If Prisma returns `Decimal`, convert or document the expected type for the UI.
 - Keep view types in their `*.types.ts` file.
 - Keep shared types in `types/` or `utils/` depending on actual scope.
@@ -308,6 +313,14 @@ Apply the order as:
 - `Funciones`: handlers, mappers, local helpers.
 - `Vue`: `watch`, `watchEffect`, lifecycle hooks, `definePageMeta`.
 
+Quality rules:
+
+- Keep `.vue` files focused on UI composition and local orchestration. Move DTOs, constants, enums, mapping logic, validators, and reusable functions out of the component when they are not strictly view-local.
+- Keep templates clean: no inline lambdas, no direct `emit(...)`, no assignments, no complex ternaries, no payload construction, and no descriptive HTML comments.
+- Keep event handlers named in Spanish and define them in the `Funciones` block.
+- Do not use casts to quiet Vue, Volar, DOM event, or API response types. Fix the prop/model/event type, add an explicit DTO, or introduce a typed helper.
+- Prefer `defineModel` for forwarded `v-model` values instead of computed get/set pass-through proxies.
+
 ## 8. Checklist before closing
 
 - `pages/` only contains actual route files.
@@ -318,6 +331,9 @@ Apply the order as:
 - Visual error handling remains in the Consuming view or component.
 - No `any`.
 - No `unknown` or `undefined`.
+- No `as` or `satisfies`.
+- No raw `response.json()` casting.
 - Types come from Prisma or explicit DTOs.
 - Shared reusable code remains in `utils/`.
 - The `.vue` file respects the internal order defined above.
+- Edited `.vue` templates do not contain inline `emit`, inline lambdas, assignments, complex expressions, or descriptive comments.

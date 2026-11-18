@@ -15,7 +15,7 @@ Apply these rules before modifying any Vue or Nuxt code in the LavePresto codeba
 
 - **Imports:** Always use `@/...` for internal imports. Never use `~/...`. If you find `~/`, normalize it to `@/`.
 - **Alerts:** Never destructure `useAlert()`. Use `const swalAlert = useAlert()` and call `swalAlert.open()`.
-- **Typing:** Do **not** use `as` or `satisfies`. Use explicit interfaces or Prisma types.
+- **Typing:** Do **not** use `as` or `satisfies` anywhere, including JSON parsing, event values, Vue refs, template helpers, and test fixes. Use explicit interfaces, Prisma types, typed `axios` generics, type guards, or helper functions with declared return types.
 - **Prisma-derived view types:** If a view type mirrors a Prisma model/query result, derive it from `Prisma.<Modelo>GetPayload` instead of recreating a manual interface.
 - **Error handling typing:** In `catch`, if the error value is not used, omit the parameter (`catch { ... }`). If you need the error, treat it as `unknown` and narrow it with `axios.isAxiosError(...)` or a shared helper from `@/utils/errores`. Never access `error.response` directly without narrowing.
 - **Props:** Do **not** declare `const props = defineProps(...)` if the props are only used in the template.
@@ -27,6 +27,7 @@ Apply these rules before modifying any Vue or Nuxt code in the LavePresto codeba
 - **Primitive refs:** Do not write `ref<number>`, `ref<string>`, or `ref<boolean>` when the initial value already infers the type. Reserve explicit generics for objects, arrays, unions, nullable values, or cases where inference is insufficient.
 - **Required primitive props:** If a child component always receives primitive props from its parent, declare them as required in `defineProps`. Do not mark them optional and then compensate with `withDefaults`, destructuring defaults, or extra computed aliases just to satisfy TypeScript/Volar.
 - **Two-way binding:** Do not build `v-model` proxies with `computed({ get, set })` that only forward `props` and `emit`. Use `defineModel` / `defineModels` for two-way bindings. This applies to `open`, `search`, `dateRange`, and any similar model prop.
+- **Fetch/JSON:** Do not write casts such as `(await response.json()) as Tipo` or `(await response.json().catch(() => ({}))) as Tipo`. Client-side HTTP belongs in stores with typed `axios`; if a raw `Response` is unavoidable, create a typed parser or type guard and return a declared DTO without casting.
 
 ### 1.1 Auto-Learning Rule
 
@@ -40,7 +41,7 @@ Apply these rules before modifying any Vue or Nuxt code in the LavePresto codeba
 - **Stores:** Stores must be minimal. They are only for HTTP calls using typed `axios`.
   - No `ref`, `computed`, `loading` states, or caches inside stores.
   - No `catch` or error resolution inside stores. The consumer (page/component) handles errors and UI messages.
-  - Content must be returned with `async/await` directly: `return await axios.get(...)`.
+  - Content must be returned with typed `async/await` directly: `return await axios.get<RespuestaTipada>(...)`.
 - **Typing:** Derive types from Prisma or define explicit DTOs. Do **not** use `any`, `unknown`, or `undefined`. Use `null` for empty states.
 
 ### 3. Folder Structure & Organization
@@ -69,6 +70,7 @@ Apply these rules before modifying any Vue or Nuxt code in the LavePresto codeba
      /** Vue (watch, hooks, meta) */
      ```
 4. **Verification:** Ensure `pages/` is clean, no `zod` is added, and stores remain stateless data access layers.
+5. **Scan Before Closing:** Search edited files for forbidden patterns: ` as `, `satisfies`, `response.json`, `$fetch`, `useFetch`, inline template `emit`, template comments, renamed store `data`, and `~/` imports.
 
 ## Forbidden Patterns
 
@@ -77,8 +79,17 @@ Apply these rules before modifying any Vue or Nuxt code in the LavePresto codeba
 - Inline comments `//` to structure `script setup` (use `/** ... */` blocks).
 - Destructuring `data` with renaming from stores.
 - Using `as` or `satisfies` for typing.
+- Casting JSON responses, especially `(await response.json().catch(() => ({}))) as Tipo`.
 - Comentarios descriptivos dentro de los templates de Vue (ej. `<!-- Image Section -->`).
 - Variables con nombres de una sola letra (excepto iteradores en `for`) o escritas en Spanglish/Inglés.
 - Uso de literales de texto directamente en las sentencias lógicas. Siempre usar un `Enum`.
 - Importar tipos desde `@prisma/client`. Usar siempre el cliente interno generado (`@/server/prisma-client`).
 - Funciones inline o llamadas a `emit` directas en el template de Vue (e.g., `@click="emit('evento')"` o `@change="(val) => emit('event', val)"`). Los eventos del template deben mapear a funciones explícitas definidas en el bloque `/** Functions */` del script.
+
+## `.vue` Quality Bar
+
+- Keep `.vue` files thin: route/view files orchestrate state and UI; move DTOs, constants, mapping, validation helpers, and reusable logic to `lib/`, `utils/`, `types/`, or composables by scope.
+- Keep template expressions simple. Move conditionals, formatting, mapping, and event payload construction into named functions or computed values in `script setup`.
+- Never hide typing problems with casts. Fix the source type, add a DTO, or add a narrow type guard/helper.
+- Use explicit function names for template events; do not inline lambdas, `emit(...)`, assignments, or multi-step expressions in the template.
+- Before finishing any `.vue` change, run a textual scan on the edited files for ` as `, `satisfies`, `any`, `response.json`, `$fetch`, `useFetch`, `@click="emit`, `@change="emit`, `<!--`, and `~/`.
